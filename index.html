@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff portal — sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10151c;
+    --ink-2:#161d26;
+    --panel:#1b232e;
+    --line:#2b3542;
+    --brass:#c89b3c;
+    --brass-dim:#8a6c2c;
+    --paper:#f4f1e9;
+    --paper-2:#ffffff;
+    --text-hi:#eae6db;
+    --text-mid:#9aa4b0;
+    --text-dim:#5c6672;
+    --ink-text:#1b2029;
+    --ink-sub:#5c6270;
+    --danger:#c1554a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--ink);
+    color:var(--text-hi);
+    display:flex;
+    min-height:100vh;
+  }
+  .stage{
+    display:grid;
+    grid-template-columns:1.05fr 1fr;
+    width:100%;
+    min-height:100vh;
+  }
+
+  /* LEFT — ID / kiosk panel */
+  .left{
+    position:relative;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(200,155,60,0.07), transparent 45%),
+      var(--ink);
+    padding:56px 56px 40px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    border-right:1px solid var(--line);
+    overflow:hidden;
+  }
+  .left::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:42px 42px;
+    opacity:0.12;
+    pointer-events:none;
+  }
+
+  .org{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .org-mark{
+    width:34px;height:34px;
+    border:1.5px solid var(--brass);
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    color:var(--brass);
+    font-size:15px;
+    flex-shrink:0;
+  }
+  .org-name{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.02em;
+    color:var(--text-hi);
+  }
+  .org-sub{
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin-top:2px;
+  }
+
+  .badge-wrap{
+    position:relative;
+    margin:auto 0;
+    padding:52px 0;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--brass);
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    margin:0 0 18px;
+  }
+  h1.headline{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:38px;
+    line-height:1.18;
+    letter-spacing:-0.01em;
+    margin:0 0 16px;
+    color:var(--text-hi);
+    max-width:9.5em;
+  }
+  .headline .accent{color:var(--brass);}
+  .sub{
+    font-size:15px;
+    color:var(--text-mid);
+    line-height:1.6;
+    max-width:34ch;
+    margin:0 0 40px;
+  }
+
+  /* badge card */
+  .badge{
+    width:280px;
+    background:linear-gradient(160deg, var(--panel), var(--ink-2));
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:20px 22px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 30px 60px -25px rgba(0,0,0,0.6);
+  }
+  .badge::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;
+    height:70px;
+    background:linear-gradient(180deg, rgba(200,155,60,0.16), transparent);
+    top:-70px;
+    animation:scan 3.2s ease-in-out infinite;
+  }
+  @keyframes scan{
+    0%{top:-70px;}
+    50%{top:110%;}
+    100%{top:-70px;}
+  }
+  .badge-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:18px;
+  }
+  .badge-id{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:0.06em;
+  }
+  .badge-status{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    letter-spacing:0.08em;
+    color:#7fb8a8;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    text-transform:uppercase;
+  }
+  .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:#7fb8a8;
+    box-shadow:0 0 0 3px rgba(127,184,168,0.15);
+  }
+  .badge-photo{
+    width:52px;height:52px;
+    border-radius:10px;
+    background:linear-gradient(135deg,#2b3542,#1b232e);
+    border:1px solid var(--line);
+    margin-bottom:14px;
+  }
+  .badge-name{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:16px;
+    font-weight:600;
+    color:var(--text-hi);
+    margin:0 0 2px;
+  }
+  .badge-role{
+    font-size:12px;
+    color:var(--text-mid);
+    margin:0;
+  }
+  .badge-foot{
+    margin-top:18px;
+    padding-top:14px;
+    border-top:1px dashed var(--line);
+    display:flex;
+    justify-content:space-between;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--text-dim);
+    letter-spacing:0.04em;
+  }
+
+  .left-foot{
+    position:relative;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:0.04em;
+  }
+  #clock{
+    color:var(--text-mid);
+    font-size:12px;
+  }
+
+  /* RIGHT — form panel */
+  .right{
+    background:var(--paper);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px;
+  }
+  .form-card{
+    width:100%;
+    max-width:380px;
+  }
+  .form-top{
+    margin-bottom:32px;
+  }
+  .form-top h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:24px;
+    font-weight:600;
+    color:var(--ink-text);
+    margin:0 0 8px;
+  }
+  .form-top p{
+    font-size:14px;
+    color:var(--ink-sub);
+    margin:0;
+    line-height:1.55;
+  }
+
+  form{display:flex;flex-direction:column;gap:18px;}
+  .field{display:flex;flex-direction:column;gap:7px;}
+  .field label{
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-text);
+    letter-spacing:0.01em;
+  }
+  .input-wrap{position:relative;}
+  .input-wrap input{
+    width:100%;
+    padding:12px 14px;
+    font-size:14.5px;
+    font-family:'Inter',sans-serif;
+    border:1px solid #d8d3c4;
+    border-radius:8px;
+    background:var(--paper-2);
+    color:var(--ink-text);
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .input-wrap input::placeholder{color:#a8a294;}
+  .input-wrap input:focus{
+    border-color:var(--brass-dim);
+    box-shadow:0 0 0 3px rgba(200,155,60,0.15);
+  }
+  .toggle-pw{
+    position:absolute;
+    right:12px;top:50%;
+    transform:translateY(-50%);
+    background:none;border:none;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--ink-sub);
+    cursor:pointer;
+    letter-spacing:0.03em;
+    padding:4px;
+  }
+  .toggle-pw:hover{color:var(--ink-text);}
+
+  .row-between{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:13px;
+    margin-top:-4px;
+  }
+  .remember{
+    display:flex;align-items:center;gap:8px;
+    color:var(--ink-sub);
+    cursor:pointer;
+    user-select:none;
+  }
+  .remember input{
+    width:15px;height:15px;
+    accent-color:var(--brass-dim);
+    cursor:pointer;
+  }
+  a.link{
+    color:var(--brass-dim);
+    text-decoration:none;
+    font-weight:500;
+  }
+  a.link:hover{text-decoration:underline;}
+
+  .error-msg{
+    display:none;
+    font-size:13px;
+    color:var(--danger);
+    background:rgba(193,85,74,0.08);
+    border:1px solid rgba(193,85,74,0.25);
+    padding:10px 12px;
+    border-radius:8px;
+  }
+  .error-msg.show{display:block;}
+
+  button.submit{
+    margin-top:6px;
+    padding:13px;
+    border:none;
+    border-radius:8px;
+    background:var(--ink-text);
+    color:#f4f1e9;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    letter-spacing:0.01em;
+    cursor:pointer;
+    transition:background .15s, transform .1s;
+  }
+  button.submit:hover{background:#000;}
+  button.submit:active{transform:scale(0.99);}
+  button.submit:focus-visible{outline:2px solid var(--brass-dim);outline-offset:2px;}
+
+  .divider{
+    display:flex;align-items:center;gap:12px;
+    color:var(--ink-sub);
+    font-size:12px;
+    margin:6px 0;
+  }
+  .divider::before,.divider::after{
+    content:"";flex:1;height:1px;background:#d8d3c4;
+  }
+
+  .sso{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:12px;
+    border:1px solid #d8d3c4;
+    border-radius:8px;
+    background:var(--paper-2);
+    font-size:13.5px;
+    font-weight:500;
+    color:var(--ink-text);
+    cursor:pointer;
+  }
+  .sso:hover{border-color:#b8b19c;}
+
+  .form-foot{
+    margin-top:28px;
+    font-size:12.5px;
+    color:var(--ink-sub);
+    text-align:center;
+    line-height:1.6;
+  }
+
+  @media (max-width:860px){
+    .stage{grid-template-columns:1fr;}
+    .left{display:none;}
+    .right{padding:32px 20px;}
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="left">
+    <div class="org">
+      <div class="org-mark">MO</div>
+      <div>
+        <div class="org-name">Meridian Operations</div>
+        <div class="org-sub">Staff network</div>
+      </div>
+    </div>
+
+    <div class="badge-wrap">
+      <p class="eyebrow">Access requires clearance</p>
+      <h1 class="headline">Sign in with your <span class="accent">staff credentials</span></h1>
+      <p class="sub">This portal is restricted to Meridian personnel. Every session is logged against your staff ID.</p>
+
+      <div class="badge">
+        <div class="badge-row">
+          <span class="badge-id">ID // MO-40217</span>
+          <span class="badge-status"><span class="dot"></span>Active</span>
+        </div>
+        <div class="badge-photo"></div>
+        <p class="badge-name">Staff member</p>
+        <p class="badge-role">Facilities &amp; operations</p>
+        <div class="badge-foot">
+          <span>Issued 03.2024</span>
+          <span>Zone C clearance</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="left-foot">
+      <span>meridian-ops.internal</span>
+      <span id="clock">--:--:--</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="form-card">
+      <div class="form-top">
+        <h2>Staff sign in</h2>
+        <p>Enter your staff ID and password to continue.</p>
+      </div>
+
+      <form id="loginForm" novalidate>
+        <div class="error-msg" id="formError">Enter both your staff ID and password.</div>
+
+        <div class="field">
+          <label for="staffId">Staff ID or email</label>
+          <div class="input-wrap">
+            <input type="text" id="staffId" name="staffId" placeholder="MO-40217 or name@meridian.com" autocomplete="username">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-wrap">
+            <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
+            <button type="button" class="toggle-pw" id="togglePw">SHOW</button>
+          </div>
+        </div>
+
+        <div class="row-between">
+          <label class="remember">
+            <input type="checkbox" id="remember">
+            Keep me signed in
+          </label>
+          <a href="#" class="link">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="submit">Sign in</button>
+
+        <div class="divider">or</div>
+
+        <div class="sso" id="ssoBtn">Sign in with company SSO</div>
+      </form>
+
+      <p class="form-foot">Trouble accessing your account? Contact IT support at<br><a href="#" class="link">helpdesk@meridian.com</a></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function pad(n){return n.toString().padStart(2,'0');}
+  function tick(){
+    const d = new Date();
+    document.getElementById('clock').textContent =
+      pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  const togglePw = document.getElementById('togglePw');
+  const pwInput = document.getElementById('password');
+  togglePw.addEventListener('click', () => {
+    const isPw = pwInput.type === 'password';
+    pwInput.type = isPw ? 'text' : 'password';
+    togglePw.textContent = isPw ? 'HIDE' : 'SHOW';
+  });
+
+  const form = document.getElementById('loginForm');
+  const errorMsg = document.getElementById('formError');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('staffId').value.trim();
+    const pw = pwInput.value;
+    if(!id || !pw){
+      errorMsg.classList.add('show');
+      return;
+    }
+    errorMsg.classList.remove('show');
+    alert('This is a design demo — connect it to your authentication service to sign in for real.');
+  });
+
+  document.getElementById('ssoBtn').addEventListener('click', () => {
+    alert('This is a design demo — wire this up to your SSO provider.');
+  });
+</script>
+</body>
+</html>
