@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAERS · Ambulance Driver Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   SAERS — Smart Ambulance Emergency Response System
+   Single self-contained HTML file (all CSS + JS embedded)
+   ===================================================================== */
+
+/* ---- Design tokens ---- */
+:root{
+  --bg:#0a0f1c; --bg2:#0f1729; --panel:#131c30; --panel2:#1a2640;
+  --card:#16203a; --card2:#1e2b4a; --line:#243352; --line2:#2e4068;
+  --tx:#e6edf7; --tx2:#9fb0cc; --tx3:#6a7d9c; --cyan:#22d3ee;
+  --cyan-d:#0891b2; --green:#34d399; --amber:#fbbf24; --red:#f87171;
+  --blue:#60a5fa; --purple:#a78bfa; --pink:#f472b6;
+  --r:12px; --r2:8px; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.app{min-height:100vh; display:flex; flex-direction:column}
+
+/* ---- Top bar ---- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 20px; background:linear-gradient(180deg,#0c1426,#0a0f1c);
+  border-bottom:1px solid var(--line); position:sticky; top:0; z-index:1000;
+}
+.brand{display:flex; align-items:center; gap:12px}
+.brand .logo{
+  width:34px;height:34px;border-radius:9px;
+  background:linear-gradient(135deg,var(--cyan),var(--cyan-d));
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+}
+.brand h1{font-size:15px;font-weight:700;letter-spacing:.2px}
+.brand .sub{font-size:11px;color:var(--tx3);font-weight:500}
+.dashnav{display:flex;gap:6px;background:var(--panel);padding:4px;border-radius:10px;border:1px solid var(--line)}
+.dashnav a{
+  padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:600;
+  color:var(--tx2);text-decoration:none;transition:.18s;
+}
+.dashnav a:hover{color:var(--tx);background:var(--card)}
+.dashnav a.active{background:var(--cyan);color:#06212a}
+
+/* ---- Simulation controls ---- */
+.simbar{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--line);
+}
+.simbar .lbl{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.toggle .sw{
+  width:38px;height:21px;border-radius:11px;background:#2a3a5c;position:relative;transition:.2s;
+}
+.toggle .sw::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#8aa0c0;transition:.2s}
+.toggle.on .sw{background:var(--green)}
+.toggle.on .sw::after{left:19px;background:#fff}
+.toggle .tname{font-size:12.5px;color:var(--tx2)}
+.btn-reset{
+  margin-left:auto;padding:7px 14px;border-radius:8px;border:1px solid var(--line2);
+  background:var(--card);color:var(--tx2);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;
+}
+.btn-reset:hover{border-color:var(--red);color:var(--red)}
+
+/* ---- Layout ---- */
+.content{flex:1;padding:18px 20px;display:grid;gap:16px}
+.cols-2{grid-template-columns:1.4fr 1fr}
+.cols-3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:980px){.cols-2,.cols-3{grid-template-columns:1fr}}
+
+/* ---- Cards ---- */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px; display:flex;flex-direction:column;gap:12px;
+}
+.card h2{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx2)}
+.card h2 .hint{font-size:10.5px;color:var(--tx3);font-weight:500;text-transform:none;letter-spacing:0;margin-left:8px}
+.card .grow{flex:1}
+
+/* ---- GPS stat tiles ---- */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r2);
+  padding:12px; display:flex;flex-direction:column;gap:4px;
+}
+.stat .k{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.stat .v{font-size:20px;font-weight:700;font-family:var(--mono);color:var(--cyan)}
+.stat .u{font-size:10px;color:var(--tx3)}
+.stat.alt .v{color:var(--amber)}
+.stat.locked .v{color:var(--green)}
+
+/* ---- Altitude banner ---- */
+.alt-banner{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r2);
+  background:linear-gradient(90deg,rgba(251,191,36,.12),transparent);
+  border:1px solid rgba(251,191,36,.3);font-size:12.5px;
+}
+.alt-banner .ic{font-size:18px}
+.alt-banner .big{font-weight:700;color:var(--amber);font-family:var(--mono)}
+.alt-banner.green{background:linear-gradient(90deg,rgba(52,211,153,.12),transparent);border-color:rgba(52,211,153,.3)}
+.alt-banner.green .big{color:var(--green)}
+
+/* ---- Pills / badges ---- */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill.green{background:rgba(52,211,153,.15);color:var(--green)}
+.pill.amber{background:rgba(251,191,36,.15);color:var(--amber)}
+.pill.red{background:rgba(248,113,113,.15);color:var(--red)}
+.pill.blue{background:rgba(96,165,250,.15);color:var(--blue)}
+.pill.cyan{background:rgba(34,211,238,.15);color:var(--cyan)}
+.pill.gray{background:rgba(154,170,200,.12);color:var(--tx3)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot.g{background:var(--green)} .dot.a{background:var(--amber)} .dot.r{background:var(--red)} .dot.b{background:var(--blue)} .dot.gy{background:var(--tx3)}
+
+/* ---- Buttons ---- */
+.btn{
+  padding:10px 16px;border-radius:var(--r2);border:1px solid var(--line2);
+  background:var(--card);color:var(--tx);font-size:13px;font-weight:600;cursor:pointer;transition:.15s;
+}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn.primary{background:linear-gradient(135deg,var(--red),#dc2626);border-color:transparent;color:#fff}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn.cyan{background:linear-gradient(135deg,var(--cyan),var(--cyan-d));border-color:transparent;color:#06212a}
+.btn.cyan:hover{filter:brightness(1.1)}
+.btn.green{background:linear-gradient(135deg,var(--green),#059669);border-color:transparent;color:#062a1a}
+.btn.green:hover{filter:brightness(1.1)}
+.btn.sm{padding:6px 11px;font-size:11.5px}
+.btn.full{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---- List items ---- */
+.item{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r2);
+  padding:12px;display:flex;flex-direction:column;gap:8px;transition:.15s;
+}
+.item:hover{border-color:var(--line2)}
+.item .row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.item .id{font-weight:700;font-size:13.5px;font-family:var(--mono)}
+.item .meta{font-size:11.5px;color:var(--tx2)}
+.item .dist{font-family:var(--mono);font-size:12px;color:var(--cyan);font-weight:600}
+.item .eta{font-family:var(--mono);font-size:11px;color:var(--tx3)}
+
+/* ---- Hospital availability chips ---- */
+.fac-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
+.fac{
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:6px 9px;border-radius:6px;background:var(--bg2);border:1px solid var(--line);
+  font-size:11px;
+}
+.fac .fname{color:var(--tx2);font-weight:500}
+.fac .fval{font-weight:700;font-size:11.5px}
+.fac.ok .fval{color:var(--green)} .fac.ok{border-color:rgba(52,211,153,.25)}
+.fac.warn .fval{color:var(--amber)} .fac.warn{border-color:rgba(251,191,36,.25)}
+.fac.bad .fval{color:var(--red)} .fac.bad{border-color:rgba(248,113,113,.25)}
+
+/* ---- Map ---- */
+.map{height:340px;border-radius:var(--r2);border:1px solid var(--line);overflow:hidden;z-index:1}
+.map.tall{height:380px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:10.5px;color:var(--tx3)}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.legend i{width:9px;height:9px;border-radius:50%}
+
+/* ---- Timeline ---- */
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);position:relative}
+.tl-item:last-child{border-bottom:none}
+.tl-item .ts{font-size:10px;color:var(--tx3);font-family:var(--mono);min-width:46px;padding-top:1px}
+.tl-item .txt{font-size:12px;color:var(--tx2)}
+.tl-item .txt b{color:var(--tx)}
+
+/* ---- Network box ---- */
+.netbox{display:flex;flex-direction:column;gap:8px}
+.netrow{display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.netrow .lbl{color:var(--tx2)}
+.netrow .val{font-weight:600}
+.netrow .val.on{color:var(--green)} .netrow .val.off{color:var(--amber)}
+.alert{
+  padding:10px 12px;border-radius:var(--r2);font-size:11.5px;line-height:1.45;
+  background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:var(--amber);
+}
+.alert.red{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--red)}
+.alert.green{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.3);color:var(--green)}
+
+/* ---- KPI tiles (control room) ---- */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);padding:14px;display:flex;flex-direction:column;gap:4px}
+.kpi .k{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.kpi .v{font-size:26px;font-weight:800;font-family:var(--mono)}
+.kpi .sub{font-size:10.5px;color:var(--tx2)}
+.kpi.cyan .v{color:var(--cyan)} .kpi.green .v{color:var(--green)} .kpi.amber .v{color:var(--amber)} .kpi.red .v{color:var(--red)}
+
+/* ---- Toast ---- */
+.toasts{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{
+  background:var(--card2);border:1px solid var(--line2);border-radius:var(--r2);
+  padding:11px 15px;font-size:12.5px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  animation:slidein .25s ease;
+}
+.toast.ok{border-color:rgba(52,211,153,.4)} .toast.warn{border-color:rgba(251,191,36,.4)} .toast.err{border-color:rgba(248,113,113,.4)}
+@keyframes slidein{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ---- Patient assessment ---- */
+.assess{display:flex;flex-direction:column;gap:10px}
+.sev-row{display:flex;gap:6px;flex-wrap:wrap}
+.sev{
+  padding:6px 12px;border-radius:6px;border:1px solid var(--line2);background:var(--card);
+  font-size:11.5px;font-weight:600;cursor:pointer;color:var(--tx2);transition:.15s;
+}
+.sev:hover{border-color:var(--cyan)}
+.sev.active.crit{background:var(--red);color:#fff;border-color:transparent}
+.sev.active.ser{background:var(--amber);color:#1a1300;border-color:transparent}
+.sev.active.mod{background:var(--blue);color:#0a1a2e;border-color:transparent}
+.sev.active.min{background:var(--green);color:#062a1a;border-color:transparent}
+
+/* ---- Leaflet dark tweaks ---- */
+.leaflet-container{background:#0a1020!important;font-family:inherit}
+.leaflet-control-attribution{background:rgba(10,15,28,.7)!important;color:var(--tx3)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--tx2)!important}
+.leaflet-control-zoom a{background:var(--panel2)!important;color:var(--tx)!important;border-color:var(--line2)!important}
+.leaflet-control-zoom a:hover{background:var(--card2)!important}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card2)!important;color:var(--tx)!important;border:1px solid var(--line2)}
+.leaflet-popup-content{margin:8px 10px!important;font-size:11.5px!important}
+.accident-icon{display:flex;align-items:center;justify-content:center;font-size:16px}
+.amb-icon{display:flex;align-items:center;justify-content:center;font-size:14px;border-radius:50%;color:#fff;font-weight:700}
+.hosp-icon{display:flex;align-items:center;justify-content:center;font-size:14px}
+
+.muted{color:var(--tx3);font-size:11.5px}
+.mono{font-family:var(--mono)}
+.spacer{height:6px}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* SAERS Core State Engine — single-file embedded */
+(function(){
+  'use strict';
+  const LS_KEY = 'saers_state_v5';
+  const POLL_MS = 1200;
+  const ONE_HOUR = 60*60*1000;
+
+  /* Default simulated world */
+  function defaults(){
+    return {
+      updatedAt: Date.now(),
+      incident: null,                 // { lat,lng,alt,altName,roadLevel,addr,reportedAt,lockedUntil,severity}
+      ambulances: [
+        { id:'AMB-1042', type:'Advanced Life Support', driver:'Imran K.', lat:12.9735, lng:77.5920, alt:920, status:'available', lastSeen:Date.now()-180000, online:true },
+        { id:'AMB-1101', type:'Basic Life Support',    driver:'Priya S.', lat:12.9690, lng:77.5990, alt:915, status:'available', lastSeen:Date.now()-120000, online:true },
+        { id:'AMB-1067', type:'Basic Life Support',    driver:'Suresh P.', lat:12.9680, lng:77.5880, alt:910, status:'busy',      lastSeen:Date.now()-120000, online:true },
+        { id:'AMB-1093', type:'Advanced Life Support', driver:'Anita R.',  lat:12.9750, lng:77.6010, alt:925, status:'available', lastSeen:Date.now()-120000, online:false }
+      ],
+      hospitals: [
+        { id:'H1', name:'Apollo Multispecialty',  lat:12.9650, lng:77.5980, alt:905,
+          icuBeds:{total:12,avail:4}, ot:{total:6,avail:2}, bloodBank:true,
+          specialists:['Trauma','Cardiology','Neuro','Ortho'], dist:0, eta:0 },
+        { id:'H2', name:'City General Hospital',   lat:12.9720, lng:77.6050, alt:908,
+          icuBeds:{total:8,avail:1}, ot:{total:4,avail:0}, bloodBank:true,
+          specialists:['Trauma','Ortho'], dist:0, eta:0 },
+        { id:'H3', name:'Sunrise Trauma Center',   lat:12.9620, lng:77.5880, alt:900,
+          icuBeds:{total:16,avail:7}, ot:{total:8,avail:3}, bloodBank:true,
+          specialists:['Trauma','Neuro','Cardio'], dist:0, eta:0 },
+        { id:'H4', name:'Lifeline Cardiac Care',   lat:12.9770, lng:77.5910, alt:912,
+          icuBeds:{total:10,avail:3}, ot:{total:5,avail:2}, bloodBank:false,
+          specialists:['Cardiology'], dist:0, eta:0 }
+      ],
+      requests: [],                   // { id, ambId, status:'pending|accepted|declined', createdAt, acceptedAt }
+      patientStatus: null,            // { severity, note, setAt }
+      selectedHospital: null,         // hospital id
+      trafficNotifs: [],              // { id, route, hospital, createdAt, status }
+      eventLog: [],                   // { ts, text }
+      toggles: { bystanderOnline:true, driverOnline:true, offlineMaps:true, controlNet:true },
+      driverPhase: 'idle'             // idle|enroute|at_scene|to_hospital|arrived_hospital
+    };
+  }
+
+  let state = load() || defaults();
+  const subs = [];
+
+  function load(){
+    try{ const raw = localStorage.getItem(LS_KEY); return raw? JSON.parse(raw): null; }catch(e){ return null; }
+  }
+  function save(s){ try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(e){} }
+  function notify(){ subs.forEach(fn=>{ try{fn(state);}catch(e){console.warn(e);} }); }
+
+  function commit(mutator){
+    const draft = JSON.parse(JSON.stringify(state));
+    mutator(draft);
+    draft.updatedAt = Date.now();
+    state = draft;
+    save(state);
+    notify();
+  }
+
+  function log(draft, text){
+    draft.eventLog.unshift({ ts: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}), text });
+    if(draft.eventLog.length>40) draft.eventLog.length=40;
+  }
+
+  /* ---- Haversine (km) ---- */
+  function haversine(a,b){
+    const R=6371, toRad=d=>d*Math.PI/180;
+    const dLat=toRad(b.lat-a.lat), dLng=toRad(b.lng-a.lng);
+    const la1=toRad(a.lat), la2=toRad(b.lat);
+    const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function etaKm(km){ return Math.max(1, Math.round(km/0.5)); } // ~30km/h city avg => 2min/km, use 0.5km/min
+
+  /* ---- Altitude helpers ---- */
+  // Ground reference for Bengaluru area ~ 920m. Compute "meters above ground".
+  function altAboveGround(altM){
+    const GROUND = 920;
+    return Math.round(altM - GROUND);
+  }
+  function roadLevelName(altM){
+    const above = altAboveGround(altM);
+    if(above <= 1)  return 'Ground-level road';
+    if(above <= 8)  return 'Low-level ramp / underpass approach';
+    if(above <= 14) return 'Flyover / elevated road';
+    return 'High-level overpass / bridge';
+  }
+  function altColor(altM){
+    const above = altAboveGround(altM);
+    if(above <= 1)  return '#34d399'; // green — ground
+    if(above <= 8)  return '#fbbf24'; // amber — ramp
+    return '#f87171';                 // red — flyover
+  }
+
+  /* ---- Domain actions ---- */
+  function reportIncident(loc, addr){
+    commit(d=>{
+      const altAG = altAboveGround(loc.alt);
+      d.incident = {
+        lat: loc.lat, lng: loc.lng, alt: loc.alt,
+        altAboveGround: altAG,
+        roadLevel: roadLevelName(loc.alt),
+        addr: addr,
+        reportedAt: Date.now(),
+        lockedUntil: Date.now() + ONE_HOUR
+      };
+      d.requests = [];
+      d.patientStatus = null;
+      d.selectedHospital = null;
+      d.trafficNotifs = [];
+      d.driverPhase = 'idle';
+      // attach computed dist/eta to hospitals
+      d.hospitals.forEach(h=>{
+        const km = haversine({lat:loc.lat,lng:loc.lng}, h);
+        h.dist = +km.toFixed(2);
+        h.eta = etaKm(km);
+      });
+      log(d, `Accident reported at ${addr}. Location locked. Altitude ${loc.alt}m (${altAG}m above ground — ${roadLevelName(loc.alt)}).`);
+    });
+  }
+
+  function requestAmbulance(ambId){
+    commit(d=>{
+      const amb = d.ambulances.find(a=>a.id===ambId);
+      if(!amb) return;
+      // remove old pending for this amb
+      d.requests = d.requests.filter(r=>!(r.ambId===ambId && r.status==='pending'));
+      d.requests.push({ id:'R'+Date.now(), ambId, status:'pending', createdAt:Date.now() });
+      log(d, `Location-sharing request sent to ${ambId} (${amb.driver}).`);
+    });
+  }
+
+  function acceptRequest(reqId){
+    commit(d=>{
+      const r = d.requests.find(x=>x.id===reqId);
+      if(!r) return;
+      r.status = 'accepted'; r.acceptedAt = Date.now();
+      const amb = d.ambulances.find(a=>a.id===r.ambId);
+      if(amb){ amb.status = 'dispatched'; amb.online = true; }
+      d.driverPhase = 'enroute';
+      log(d, `${r.ambId} accepted the request. Ambulance GPS now shared with the system. En route to scene.`);
+    });
+  }
+  function declineRequest(reqId){
+    commit(d=>{
+      const r = d.requests.find(x=>x.id===reqId);
+      if(!r) return;
+      r.status = 'declined';
+      log(d, `${r.ambId} declined the location request.`);
+    });
+  }
+
+  function markAtScene(){
+    commit(d=>{
+      d.driverPhase = 'at_scene';
+      log(d, 'Ambulance arrived at the accident scene.');
+    });
+  }
+  function setPatientStatus(severity, note){
+    commit(d=>{
+      d.patientStatus = { severity, note, setAt:Date.now() };
+      log(d, `EMT assessment: ${severity}. ${note||''}`);
+    });
+  }
+  function selectHospital(hid){
+    commit(d=>{
+      const h = d.hospitals.find(x=>x.id===hid);
+      if(!h) return;
+      d.selectedHospital = hid;
+      d.driverPhase = 'to_hospital';
+      const amb = d.ambulances.find(a=>a.status==='dispatched');
+      const ambId = amb? amb.id : 'AMB-1042';
+      const route = `Via MG Road → Brigade Road → ${h.name}`;
+      d.trafficNotifs.unshift({
+        id:'T'+Date.now(), route, hospital:h.name, ambId,
+        createdAt:Date.now(), status:'sent'
+      });
+      if(amb) amb.status='transporting';
+      log(d, `Hospital selected: ${h.name}. Traffic police auto-notified to clear route: ${route}.`);
+    });
+  }
+  function markAtHospital(){
+    commit(d=>{
+      d.driverPhase = 'arrived_hospital';
+      const amb = d.ambulances.find(a=>a.status==='transporting');
+      if(amb){ amb.status='available'; amb.lastSeen=Date.now(); }
+      log(d, 'Patient delivered to hospital. Ambulance back to available.');
+    });
+  }
+
+  function setToggles(partial){
+    commit(d=>{ Object.assign(d.toggles, partial); });
+  }
+  function resetDemo(){
+    localStorage.removeItem(LS_KEY);
+    state = defaults(); save(state); notify();
+  }
+
+  function subscribe(fn){ subs.push(fn); return ()=>{ const i=subs.indexOf(fn); if(i>=0) subs.splice(i,1); }; }
+  function get(){ return state; }
+
+  /* ---- cross-tab poll ---- */
+  setInterval(()=>{
+    const incoming = load();
+    if(incoming && incoming.updatedAt !== state.updatedAt){
+      state = incoming; notify();
+    }
+  }, POLL_MS);
+
+  window.SAERS = {
+    get, subscribe, resetDemo, setToggles,
+    reportIncident, requestAmbulance, acceptRequest, declineRequest,
+    markAtScene, setPatientStatus, selectHospital, markAtHospital,
+    haversine, etaKm, altAboveGround, roadLevelName, altColor, ONE_HOUR
+  };
+})();
+
+/* SAERS Shared UI Helpers — single-file embedded */
+(function(){
+  'use strict';
+  const $  = (q, root=document) => root.querySelector(q);
+  const $$ = (q, root=document) => Array.from(root.querySelectorAll(q));
+
+  function el(tag, cls, html){
+    const e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(html!=null) e.innerHTML = html;
+    return e;
+  }
+
+  function toast(msg, kind){
+    let wrap = $('.toasts');
+    if(!wrap){ wrap = el('div','toasts'); document.body.appendChild(wrap); }
+    const t = el('div', 'toast '+(kind||''), msg);
+    wrap.appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 3200);
+  }
+
+  function commsState(s){
+    const both = s.toggles.bystanderOnline && s.toggles.driverOnline;
+    return {
+      realtime: both,
+      bystanderOnline: s.toggles.bystanderOnline,
+      driverOnline: s.toggles.driverOnline,
+      label: both ? 'Real-time link active' : 'Real-time communication unavailable'
+    };
+  }
+
+  /* ---- Map factory ---- */
+  function makeMap(node, center, zoom){
+    if(typeof L === 'undefined'){ node.innerHTML = '<div style="padding:20px;color:#9fb0cc">Map library unavailable</div>'; return null; }
+    const map = L.map(node, {
+      zoomControl:true, zoomAnimation:false, fadeAnimation:false, preferCanvas:true
+    }).setView(center, zoom||14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+      maxZoom:19, attribution:'&copy; OpenStreetMap &copy; CARTO'
+    }).addTo(map);
+    setTimeout(()=>map.invalidateSize(), 200);
+    return map;
+  }
+
+  /* ---- Markers ---- */
+  function accidentMarker(incident){
+    const color = SAERS.altColor(incident.alt);
+    const above = incident.altAboveGround;
+    const icon = L.divIcon({
+      className:'', html:
+        `<div class="accident-icon" style="background:${color};width:30px;height:30px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 12px ${color}">✖</div>`,
+      iconSize:[30,30], iconAnchor:[15,15]
+    });
+    const m = L.marker([incident.lat, incident.lng], {icon});
+    m.bindPopup(`<b>Accident location</b><br>Altitude: ${incident.alt} m<br>${above>=0?above+' m above ground':''}<br>Road level: ${incident.roadLevel}<br>${incident.addr}`);
+    return m;
+  }
+  function ambulanceMarker(amb, selected){
+    const color = amb.status==='dispatched'||amb.status==='transporting' ? '#22d3ee' : amb.status==='busy' ? '#fbbf24' : '#34d399';
+    const label = amb.id.replace('AMB-','A');
+    const icon = L.divIcon({
+      className:'', html:
+        `<div class="amb-icon" style="background:${color};width:26px;height:26px;border:2px solid #fff;box-shadow:0 0 10px ${color}">${label}</div>`,
+      iconSize:[26,26], iconAnchor:[13,13]
+    });
+    const m = L.marker([amb.lat, amb.lng], {icon});
+    m.bindPopup(`<b>${amb.id}</b><br>${amb.type}<br>Driver: ${amb.driver}<br>Status: ${amb.status}<br>${amb.online?'Online':'Offline (last known)'}`);
+    return m;
+  }
+  function hospitalMarker(h, selected){
+    const color = selected ? '#a78bfa' : '#60a5fa';
+    const icon = L.divIcon({
+      className:'', html:
+        `<div class="hosp-icon" style="background:${color};width:26px;height:26px;border-radius:6px;border:2px solid #fff;box-shadow:0 0 10px ${color}">🏥</div>`,
+      iconSize:[26,26], iconAnchor:[13,13]
+    });
+    const m = L.marker([h.lat, h.lng], {icon});
+    const icu = h.icuBeds;
+    m.bindPopup(`<b>${h.name}</b><br>ICU: ${icu.avail}/${icu.total} beds free<br>OT: ${h.ot.avail}/${h.ot.total} free<br>Blood Bank: ${h.bloodBank?'Yes':'No'}<br>Specialists: ${h.specialists.join(', ')}`);
+    return m;
+  }
+
+  function fmtKm(km){ return km<1 ? Math.round(km*1000)+' m' : km.toFixed(1)+' km'; }
+  function fmtEta(min){ return min<60 ? Math.round(min)+' min' : (min/60).toFixed(1)+' hr'; }
+  function timeAgo(ts){ const s=Math.round((Date.now()-ts)/1000); if(s<60)return s+'s ago'; const m=Math.round(s/60); if(m<60)return m+'m ago'; return Math.round(m/60)+'h ago'; }
+
+  /* ---- Common topbar + sim controls ---- */
+  function topbar(active){
+    return `
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">🚑</div>
+        <div>
+          <h1>Smart Ambulance Emergency Response</h1>
+          <div class="sub">SAERS · Offline-capable GPS dispatch</div>
+        </div>
+      </div>
+      <nav class="dashnav">
+        <a href="index.html" class="${active==='bystander'?'active':''}">🧍 Bystander</a>
+        <a href="driver.html" class="${active==='driver'?'active':''}">🚑 Ambulance Driver</a>
+        <a href="control.html" class="${active==='control'?'active':''}">🛰️ Control Room</a>
+      </nav>
+    </div>`;
+  }
+
+  function simbarHTML(t){
+    return `
+    <div class="simbar">
+      <span class="lbl">Simulation controls</span>
+      <div class="toggle ${t.bystanderOnline?'on':''}" id="t-bystander"><div class="sw"></div><span class="tname">Bystander Internet</span></div>
+      <div class="toggle ${t.driverOnline?'on':''}" id="t-driver"><div class="sw"></div><span class="tname">Ambulance Internet</span></div>
+      <div class="toggle ${t.offlineMaps?'on':''}" id="t-offmap"><div class="sw"></div><span class="tname">Offline Maps</span></div>
+      <button class="btn-reset" id="btn-reset">↺ Reset Demo</button>
+    </div>`;
+  }
+
+  function bindSimbar(){
+    setupToggle('t-bystander','bystanderOnline');
+    setupToggle('t-driver','driverOnline');
+    setupToggle('t-offmap','offlineMaps');
+    $('#btn-reset').addEventListener('click', ()=>{ SAERS.resetDemo(); toast('Demo reset','warn'); });
+  }
+  function setupToggle(id, key){
+    const node = $('#'+id);
+    if(!node) return;
+    const s = SAERS.get();
+    node.classList.toggle('on', !!s.toggles[key]);
+    node.addEventListener('click', ()=>{
+      const val = !node.classList.contains('on');
+      node.classList.toggle('on', val);
+      SAERS.setToggles({ [key]: val });
+      toast((val?'Enabled':'Disabled')+': '+node.querySelector('.tname').textContent, val?'ok':'warn');
+    });
+  }
+
+  window.UI = {
+    $, $$, el, toast, commsState, makeMap,
+    accidentMarker, ambulanceMarker, hospitalMarker,
+    fmtKm, fmtEta, timeAgo, topbar, simbarHTML, bindSimbar
+  };
+})();
+
+/* SAERS Ambulance Driver Dashboard — single-file embedded */
+(function(){
+  'use strict';
+  const { $, $$, el, toast, commsState, makeMap, accidentMarker, ambulanceMarker, hospitalMarker,
+          fmtKm, fmtEta, timeAgo, topbar, simbarHTML, bindSimbar } = UI;
+
+  const ME_ID = 'AMB-1042';
+
+  let rendered = false, map = null, layerAcc = null, layerAmb = null, layerHosp = null, layerRoute = null;
+
+  function me(s){ return s.ambulances.find(a=>a.id===ME_ID); }
+
+  function layout(){
+    const s = SAERS.get();
+    const cs = commsState(s);
+    const inc = s.incident;
+    const amb = me(s);
+    const req = s.requests.find(r=>r.ambId===ME_ID && (r.status==='pending'||r.status==='accepted'));
+    const phase = s.driverPhase;
+
+    const distKm = inc ? SAERS.haversine({lat:amb.lat,lng:amb.lng}, inc) : 0;
+    const eta = SAERS.etaKm(distKm);
+    const altAG = inc ? inc.altAboveGround : 0;
+
+    const phaseBadge = {
+      idle:'<span class="pill gray">Idle — awaiting dispatch</span>',
+      enroute:'<span class="pill cyan"><span class="dot b"></span>En route to scene</span>',
+      at_scene:'<span class="pill amber"><span class="dot a"></span>At scene — assess patient</span>',
+      to_hospital:'<span class="pill blue"><span class="dot b"></span>Transporting to hospital</span>',
+      arrived_hospital:'<span class="pill green"><span class="dot g"></span>Patient delivered</span>'
+    }[phase];
+
+    return `
+    ${topbar('driver')}
+    ${simbarHTML(s.toggles)}
+    <div class="content cols-2">
+      <!-- LEFT: Request + Navigation map -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        ${req && req.status==='pending' ? `
+        <div class="card" style="border-color:rgba(34,211,238,.4)">
+          <h2>📨 Incoming Location-Sharing Request</h2>
+          <div class="meta" style="font-size:12.5px;color:var(--tx2)">A bystander reported an accident and is requesting your GPS location to dispatch you to the scene.</div>
+          ${inc ? `<div class="item">
+            <div class="row1"><span class="id">Accident location</span><span class="pill cyan">Locked GPS</span></div>
+            <div class="meta">${inc.addr}</div>
+            <div class="stat-grid" style="margin-top:4px">
+              <div class="stat"><div class="k">Lat</div><div class="v" style="font-size:15px">${inc.lat.toFixed(5)}</div></div>
+              <div class="stat"><div class="k">Lng</div><div class="v" style="font-size:15px">${inc.lng.toFixed(5)}</div></div>
+              <div class="stat alt"><div class="k">Altitude</div><div class="v" style="font-size:15px">${inc.alt}m</div></div>
+            </div>
+            <div class="alt-banner ${altAG<=1?'green':''}"><span class="ic">📐</span><span><b class="big">${altAG>=0?altAG:0} m</b> above ground — <b>${inc.roadLevel}</b></span></div>
+          </div>` : ''}
+          <div style="display:flex;gap:8px">
+            <button class="btn green" id="btn-accept">✓ Accept &amp; Share GPS</button>
+            <button class="btn" id="btn-decline">✗ Decline</button>
+          </div>
+        </div>` : ''}
+
+        <div class="card">
+          <h2>Scene Navigation <span class="hint">${phaseBadge}</span></h2>
+          ${inc ? `
+            <div class="stat-grid">
+              <div class="stat"><div class="k">Distance to scene</div><div class="v">${fmtKm(distKm)}</div><div class="u">${amb.online?'live':'last known'}</div></div>
+              <div class="stat"><div class="k">ETA</div><div class="v">${fmtEta(eta)}</div><div class="u">at 30 km/h</div></div>
+              <div class="stat alt"><div class="k">Accident altitude</div><div class="v">${inc.alt}m</div><div class="u">${altAG>=0?altAG:0}m above ground</div></div>
+            </div>
+            <div class="alt-banner ${altAG<=1?'green':''}"><span class="ic">📐</span><span>Target is <b class="big">${altAG>=0?altAG:0} m</b> above ground — <b>${inc.roadLevel}</b>. Use this to pick the correct road level (flyover vs. road below).</span></div>
+            <div class="map tall" id="map"></div>
+            <div class="legend">
+              <span><i style="background:${SAERS.altColor(inc.alt)}"></i> Accident</span>
+              <span><i style="background:#22d3ee"></i> Your ambulance</span>
+              <span><i style="background:#60a5fa"></i> Hospital</span>
+            </div>
+          ` : '<div class="muted">No incident assigned yet. When a bystander sends a location request, it will appear above.</div>'}
+        </div>
+      </div>
+
+      <!-- RIGHT: Patient assessment + Hospital selection + Traffic -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        ${phase==='enroute' ? `
+        <div class="card">
+          <h2>En Route to Scene</h2>
+          <div class="alert green">Navigating to the locked accident GPS. Distance ${fmtKm(distKm)} · ETA ${fmtEta(eta)}. The bystander's location is locked and will not change for 1 hour.</div>
+          <button class="btn cyan full" id="btn-scene">📍 Mark Arrived at Scene</button>
+        </div>` : ''}
+
+        ${phase==='at_scene' ? `
+        <div class="card">
+          <h2>Patient Assessment (EMT)</h2>
+          <div class="muted">Assess the patient and set severity. This drives hospital selection to avoid wrong-facility transfers.</div>
+          <div class="assess">
+            <div class="sev-row">
+              <button class="sev crit ${s.patientStatus&&s.patientStatus.severity==='Critical'?'active':''}" data-sev="Critical">🔴 Critical</button>
+              <button class="sev ser ${s.patientStatus&&s.patientStatus.severity==='Serious'?'active':''}" data-sev="Serious">🟠 Serious</button>
+              <button class="sev mod ${s.patientStatus&&s.patientStatus.severity==='Moderate'?'active':''}" data-sev="Moderate">🔵 Moderate</button>
+              <button class="sev min ${s.patientStatus&&s.patientStatus.severity==='Minor'?'active':''}" data-sev="Minor">🟢 Minor</button>
+            </div>
+            <input class="btn" style="text-align:left" id="pat-note" placeholder="e.g. Head injury, unconscious, bleeding" value="${s.patientStatus? s.patientStatus.note:''}">
+          </div>
+        </div>` : ''}
+
+        <div class="card">
+          <h2>Select Hospital &amp; Route <span class="hint">facilities near accident</span></h2>
+          ${inc ? (phase==='at_scene'||phase==='to_hospital'||phase==='arrived_hospital') ? hospSelectHTML(s) : '<div class="muted">Reach the scene and assess the patient first, then select the most appropriate hospital.</div>'
+                : '<div class="muted">No incident yet.</div>'}
+        </div>
+
+        ${s.trafficNotifs.length ? `
+        <div class="card">
+          <h2>🚓 Traffic Police Notifications</h2>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${s.trafficNotifs.map(t=>`
+              <div class="item" style="border-color:rgba(96,165,250,.3)">
+                <div class="row1"><span class="id">Route to ${t.hospital}</span><span class="pill green"><span class="dot g"></span>Sent</span></div>
+                <div class="meta">${t.route}</div>
+                <div class="meta">Ambulance ${t.ambId} · ${timeAgo(t.createdAt)}</div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <div class="card">
+          <h2>Vehicle Status</h2>
+          <div class="netbox">
+            <div class="netrow"><span class="lbl">Ambulance ID</span><span class="val mono">${ME_ID}</span></div>
+            <div class="netrow"><span class="lbl">Type</span><span class="val">${amb?amb.type:''}</span></div>
+            <div class="netrow"><span class="lbl">Driver</span><span class="val">${amb?amb.driver:''}</span></div>
+            <div class="netrow"><span class="lbl">Status</span><span class="val">${amb?amb.status:''}</span></div>
+            <div class="netrow"><span class="lbl">Internet</span><span class="val ${cs.driverOnline?'on':'off'}">${cs.driverOnline?'Online':'Offline'}</span></div>
+            ${!cs.driverOnline?`<div class="alert">🟠 You are offline. The bystander sees your last known location. Accept the request when network returns.</div>`:''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function hospSelectHTML(s){
+    const inc = s.incident;
+    const sorted = s.hospitals.slice().sort((a,b)=>a.dist-b.dist);
+    return sorted.map(h=>{
+      const icuPct = h.icuBeds.avail/h.icuBeds.total;
+      const otPct  = h.ot.avail/h.ot.total;
+      const icuClass = icuPct>0.3?'ok':(icuPct>0?'warn':'bad');
+      const otClass  = otPct>0.3?'ok':(otPct>0?'warn':'bad');
+      const sel = s.selectedHospital===h.id;
+      const reason = recommendReason(s.patientStatus, h);
+      let btn = '';
+      if(sel) btn = '<button class="btn sm" disabled>✅ Selected</button>';
+      else if(s.driverPhase==='to_hospital'||s.driverPhase==='arrived_hospital') btn = '<button class="btn sm" disabled>Locked</button>';
+      else btn = `<button class="btn sm cyan" data-hosp="${h.id}">✓ Select &amp; Go</button>`;
+      return `
+      <div class="item" ${sel?'style="border-color:#a78bfa"':''}>
+        <div class="row1">
+          <span class="id">🏥 ${h.name}</span>
+          <span class="pill ${h.dist<1?'green':'blue'}">${fmtKm(h.dist)} · ${fmtEta(h.eta)}</span>
+        </div>
+        <div class="fac-grid">
+          <div class="fac ${icuClass}"><span class="fname">🛏 ICU beds</span><span class="fval">${h.icuBeds.avail}/${h.icuBeds.total} free</span></div>
+          <div class="fac ${otClass}"><span class="fname">🔪 Operation Theatre</span><span class="fval">${h.ot.avail>0?h.ot.avail+'/'+h.ot.total+' free':'All busy'}</span></div>
+          <div class="fac ${h.bloodBank?'ok':'bad'}"><span class="fname">🩸 Blood Bank</span><span class="fval">${h.bloodBank?'Available':'No'}</span></div>
+          <div class="fac ok"><span class="fname">🩺 Specialists</span><span class="fval">${h.specialists.join(', ')}</span></div>
+        </div>
+        ${reason?`<div class="muted" style="color:var(--green)">💡 ${reason}</div>`:''}
+        ${btn}
+      </div>`;
+    }).join('') + (s.driverPhase==='to_hospital'?`<button class="btn green full" id="btn-hosp-arrived" style="margin-top:6px">🏥 Mark Arrived at Hospital</button>`:'');
+  }
+
+  function recommendReason(ps, h){
+    if(!ps) return '';
+    if(ps.severity==='Critical' && h.icuBeds.avail>0 && h.ot.avail>0) return 'Has ICU + OT available — ideal for critical patient.';
+    if(ps.note && /head|neuro|brain/i.test(ps.note) && h.specialists.some(s=>/Neuro/i.test(s))) return 'Neuro specialist available — matches head injury.';
+    if(ps.note && /card|chest|heart/i.test(ps.note) && h.specialists.some(s=>/Cardio/i.test(s))) return 'Cardiology specialist available.';
+    if(ps.severity==='Minor' && h.icuBeds.avail>0) return 'Suitable for minor cases — ICU available if needed.';
+    return '';
+  }
+
+  function initMap(){
+    const s = SAERS.get();
+    const node = $('#map'); if(!node) return;
+    const amb = me(s);
+    map = makeMap(node, [amb.lat, amb.lng], 14);
+    if(!map) return;
+    layerAcc = L.layerGroup().addTo(map);
+    layerAmb = L.layerGroup().addTo(map);
+    layerHosp = L.layerGroup().addTo(map);
+    layerRoute = L.layerGroup().addTo(map);
+    drawMap(s);
+  }
+
+  function drawMap(s){
+    if(!map) return;
+    layerAcc.clearLayers(); layerAmb.clearLayers(); layerHosp.clearLayers(); layerRoute.clearLayers();
+    const amb = me(s);
+    if(s.incident){
+      layerAcc.addLayer(accidentMarker(s.incident));
+      layerAmb.addLayer(ambulanceMarker(amb));
+      L.polyline([[amb.lat,amb.lng],[s.incident.lat,s.incident.lng]], {color:'#22d3ee',weight:3,dashArray:'6 6'}).addTo(layerRoute);
+      if(s.selectedHospital){
+        const h = s.hospitals.find(x=>x.id===s.selectedHospital);
+        if(h){
+          layerHosp.addLayer(hospitalMarker(h, true));
+          L.polyline([[s.incident.lat,s.incident.lng],[h.lat,h.lng]], {color:'#a78bfa',weight:3,dashArray:'6 6'}).addTo(layerRoute);
+        }
+      } else {
+        s.hospitals.forEach(h=> layerHosp.addLayer(hospitalMarker(h,false)));
+      }
+      map.fitBounds([[amb.lat,amb.lng],[s.incident.lat,s.incident.lng]], {padding:[40,40]});
+    }
+  }
+
+  function bindControls(){
+    const s = SAERS.get();
+    const a = $('#btn-accept'); if(a) a.addEventListener('click', ()=>{
+      const req = s.requests.find(r=>r.ambId===ME_ID && r.status==='pending');
+      if(req){ SAERS.acceptRequest(req.id); toast('Request accepted · GPS shared','ok'); }
+    });
+    const d = $('#btn-decline'); if(d) d.addEventListener('click', ()=>{
+      const req = s.requests.find(r=>r.ambId===ME_ID && r.status==='pending');
+      if(req){ SAERS.declineRequest(req.id); toast('Request declined','warn'); }
+    });
+    const sc = $('#btn-scene'); if(sc) sc.addEventListener('click', ()=>{ SAERS.markAtScene(); toast('Marked arrived at scene','ok'); });
+    $$('button[data-sev]').forEach(b=> b.addEventListener('click', ()=>{
+      const note = $('#pat-note') ? $('#pat-note').value : '';
+      SAERS.setPatientStatus(b.dataset.sev, note);
+      toast('Patient severity set: '+b.dataset.sev,'ok');
+    }));
+    $('#pat-note') && $('#pat-note').addEventListener('change', e=>{
+      const ps = SAERS.get().patientStatus;
+      if(ps) SAERS.setPatientStatus(ps.severity, e.target.value);
+    });
+    $$('button[data-hosp]').forEach(b=> b.addEventListener('click', ()=>{
+      SAERS.selectHospital(b.dataset.hosp);
+      const h = SAERS.get().hospitals.find(x=>x.id===b.dataset.hosp);
+      toast('Hospital selected: '+h.name+' · traffic police notified','ok');
+    }));
+    const ha = $('#btn-hosp-arrived'); if(ha) ha.addEventListener('click', ()=>{ SAERS.markAtHospital(); toast('Patient delivered to hospital','ok'); });
+  }
+
+  function render(){
+    const app = $('#app');
+    rendered = true;
+    app.innerHTML = layout();
+    bindSimbar();
+    bindControls();
+    try{ initMap(); }catch(e){ console.warn('map init skipped', e); }
+  }
+
+  SAERS.subscribe(render);
+  document.addEventListener('DOMContentLoaded', render);
+})();
+
+</script>
+</body>
+</html>
